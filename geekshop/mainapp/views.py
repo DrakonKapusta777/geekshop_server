@@ -1,12 +1,32 @@
+import json
+import os
+
 from django.shortcuts import render
 
-# Create your views here.
+MODULE_DIR = os.path.dirname(__file__)
+
+
+def read_file(name):
+    file_path = os.path.join(MODULE_DIR, name)
+    return json.load(open(file_path, encoding='utf-8'))
 
 
 def index(request):
+    content = {
+        'title': 'Geekshop'
+    }
 
-    return render(request, 'mainapp/index.html')
+    return render(request, 'mainapp/index.html', content)
+
 
 def products(request):
+    products = read_file('fixtures/goods.json')
+    categories = read_file('fixtures/categories.json')
 
-    return render(request, 'mainapp/products.html')
+    content = {
+        'title': 'Geekshop - Каталог',
+        'categories': categories,
+        'products': products
+    }
+
+    return render(request, 'mainapp/products.html', content)
