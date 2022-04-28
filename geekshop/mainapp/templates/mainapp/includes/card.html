@@ -5,7 +5,9 @@
                 <div class="card h-100">
                     <a href="#">
                         <img class="card-img-top"
+                             {% if product.image %}
                              src="{{ product.image.url }}"
+                             {% endif %}
                              alt="">
                     </a>
                     <div class="card-body">
@@ -13,7 +15,7 @@
                             <a href="#">{{ product.name }}</a>
                         </h4>
                         <h5>{{ product.price }}руб.</h5>
-                        <p class="card-text">{{ product.description }}</p>
+                        <p class="card-text">{{ product.descriptions }}</p>
                     </div>
                     <div class="card-footer text-center">
                         <button type="button" class="btn btn-outline-success" value="{{ product.id }}">
