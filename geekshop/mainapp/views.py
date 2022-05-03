@@ -1,39 +1,43 @@
 from django.core.paginator import Paginator, PageNotAnInteger, EmptyPage
 from django.shortcuts import render
-from django.views.generic import DetailView
+from django.views.generic import DetailView, ListView, DeleteView, UpdateView, CreateView, TemplateView
+from datetime import datetime
 
 from mainapp.models import Product, ProductCategories
 
 
-def index(request):
-    content = {
-        'title': 'Geekshop'
-    }
-
-    return render(request, 'mainapp/index.html', content)
+now = datetime.today().strftime('%H:%M')
 
 
-def products(request, id_category=None, page=1):
-    if id_category:
-        products_ = Product.objects.filter(category_id=id_category)
-    else:
-        products_ = Product.objects.all()
+class IndexView(TemplateView):
+    template_name = 'mainapp/index.html'
 
-    pagination = Paginator(products_, per_page=3)
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data()
+        context['title'] = 'GeekShop'
+        context['time'] = now
+        return context
 
-    try:
-        product_pagination = pagination.page(page)
-    except PageNotAnInteger:
-        product_pagination = pagination.page(1)
-    except EmptyPage:
-        product_pagination = pagination.page(pagination.num_pages)
-    content = {
-        'title': 'Geekshop - Каталог',
-        'categories': ProductCategories.objects.all(),
-        'products': product_pagination
-    }
 
-    return render(request, 'mainapp/products.html', content)
+class ProductsView(ListView):
+    paginate_by = 3
+    model = Product
+    template_name = 'mainapp/products.html'
+    context_object_name = 'products'
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        if self.kwargs.get('category'):
+            return qs.filter(category=self.kwargs.get('category'))
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['categories'] = ProductCategories.objects.all()
+        context['time'] = now
+        context['title'] = 'GeekShop - Каталог'
+
+        return context
 
 
 class ProductDetail(DetailView):
