@@ -3,191 +3,126 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render
 
 # Create your views here.
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 
 from adminapp.forms import UserAdminRegisterForm, UserAdminProfileForm, AdminCategoryChange, AdminProductCreate
+from adminapp.mixin import BaseClassContextMixin, SuperuserDispatchMixin, AuthorisationDispatchMixin
 from authapp.models import User
 from django.contrib.auth.decorators import user_passes_test
+from django.views.generic import ListView, TemplateView, CreateView, DeleteView, UpdateView
 
 from mainapp.models import ProductCategories, Product
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def index(request):
-    return render(request, 'adminapp/admin.html')
+class IndexTemplateView(TemplateView, BaseClassContextMixin, SuperuserDispatchMixin):
+    template_name = 'adminapp/admin.html'
+    title = 'Главня страница'
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_users(request):
-    context = {
-        'title': 'Админка | Пользователи',
-        'users': User.objects.all()
-    }
-    return render(request, 'adminapp/admin-users-read.html', context)
+class UserListView(ListView, BaseClassContextMixin, SuperuserDispatchMixin, AuthorisationDispatchMixin):
+    model = User
+    template_name = 'adminapp/admin-users-read.html'
+    title = 'Админка | Пользователи'
+    context_object_name = 'users'
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_user_create(request):
-    if request.method == 'POST':
-        form = UserAdminRegisterForm(data=request.POST, files=request.FILES)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse('adminapp:admin_users'))
-        else:
-            print(form.errors)
-    else:
-        form = UserAdminRegisterForm()
-    context = {
-        'title': 'Админка | Регистрация',
-        'form': form
-    }
-
-    return render(request, 'adminapp/admin-users-create.html', context)
+class UserCreateView(CreateView, BaseClassContextMixin, SuperuserDispatchMixin):
+    model = User
+    template_name = 'adminapp/admin-users-create.html'
+    form_class = UserAdminRegisterForm
+    title = 'Админка | Регистрация'
+    success_url = reverse_lazy('adminapp:admin_users')
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_user_update(request, id):
-    user_select = User.objects.get(id=id)
-    if request.method == 'POST':
-        form = UserAdminProfileForm(data=request.POST, instance=user_select, files=request.FILES)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse('adminapp:admin_users'))
-    else:
-        form = UserAdminProfileForm(instance=user_select)
-    context = {
-        'title': 'Админка | Обновление пользователя',
-        'form': form,
-        'user_select': user_select
-    }
-    return render(request, 'adminapp/admin-users-update-delete.html', context)
+class UserUpdateView(UpdateView, BaseClassContextMixin, SuperuserDispatchMixin):
+    model = User
+    template_name = 'adminapp/admin-users-update-delete.html'
+    form_class = UserAdminProfileForm
+    title = 'Админка | Обновление пользователя'
+    success_url = reverse_lazy('adminapp:admin_users')
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_user_delete(request, id):
-    user = User.objects.get(id=id)
-    user.is_active = False
-    user.save()
-    return HttpResponseRedirect(reverse('adminapp:admin_users'))
+class UserDeleteView(DeleteView, SuperuserDispatchMixin):
+    model = User
+    template_name = 'adminapp/admin-users-update-delete.html'
+    form_class = UserAdminProfileForm
+    success_url = reverse_lazy('adminapp:admin_users')
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.object.is_active = False
+        self.object.save()
+        return HttpResponseRedirect(self.get_success_url())
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_category(request):
-    context = {
-        'title': 'Категории',
-        'categories': ProductCategories.objects.all(),
-    }
-
-    return render(request, 'adminapp/admin_category_read.html', context)
+class AdminCategoryView(ListView, SuperuserDispatchMixin, BaseClassContextMixin):
+    template_name = 'adminapp/admin_category_read.html'
+    title = 'GeekShop | Админка'
+    model = ProductCategories
+    context_object_name = 'categories'
+    success_url = reverse_lazy('adminapp:admin_category')
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_category_update(request, id):
-    product_cat_select = ProductCategories.objects.get(id=id)
-    if request.method == 'POST':
-        form = AdminCategoryChange(instance=product_cat_select, data=request.POST)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse('adminapp:categories'))
-        else:
-            print(form.errors)
-    else:
-        form = AdminCategoryChange(instance=product_cat_select)
-
-    context = {
-        'title': 'Обновление категории',
-        'form': form,
-        'product_cat_select': product_cat_select
-    }
-    return render(request, 'adminapp/admin_category_update-delete.html', context)
+class AdminCategoryUpdateView(UpdateView, SuperuserDispatchMixin, BaseClassContextMixin):
+    model = ProductCategories
+    template_name = 'adminapp/admin_category_update-delete.html'
+    form_class = AdminCategoryChange
+    title = 'Обновление категории'
+    context_object_name = 'product_cat_select'
+    success_url = reverse_lazy('adminapp:admin_category')
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_category_delete(request, id):
-    category_select = ProductCategories.objects.get(id=id)
-    category_select.is_active = False
-    category_select.save()
+class AdminCategoryDeleteView(DeleteView, SuperuserDispatchMixin, BaseClassContextMixin):
+    model = ProductCategories
+    template_name = 'adminapp/admin_category_update-delete.html'
+    success_url = reverse_lazy('adminapp:admin_category')
 
-    return HttpResponseRedirect(reverse('adminapp:categories'))
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.object.is_active = False
+        self.object.save()
 
-
-@user_passes_test(lambda u: u.is_superuser)
-def admin_category_create(request):
-    if request.method == 'POST':
-        form = AdminCategoryChange(data=request.POST)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse('adminapp:categories'))
-        else:
-            errors = [error for error in form.errors.values()]
-            messages.error(request, *errors)
-    else:
-        form = AdminCategoryChange()
-
-    context = {
-        'title': 'Создание категории',
-        'form': form,
-    }
-
-    return render(request, 'adminapp/admin_category_create.html', context)
+        return HttpResponseRedirect(self.success_url)
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_products(request):
-    context = {
-        'title': 'Товары',
-        'products': Product.objects.all(),
-    }
-
-    return render(request, 'adminapp/admin_products_show.html', context)
+class AdminCategoryCreateView(CreateView, SuperuserDispatchMixin, BaseClassContextMixin):
+    model = ProductCategories
+    title = 'Создание категории'
+    template_name = 'adminapp/admin_category_create.html'
+    form_class = AdminCategoryChange
+    success_url = reverse_lazy('adminapp:admin_category')
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_product_create(request):
-    if request.method == 'POST':
-        form = AdminProductCreate(data=request.POST)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse('adminapp:admin_products_show'))
-        else:
-            errors = [error for error in form.errors.values()]
-            messages.error(request, *errors)
-    else:
-        form = AdminProductCreate()
-
-    context = {
-        'title': 'Создание товара',
-        'form': form,
-    }
-
-    return render(request, 'adminapp/admin_products_create.html', context)
+class AdminProductsShowView(ListView, SuperuserDispatchMixin, BaseClassContextMixin):
+    title = 'Товары'
+    model = Product
+    context_object_name = 'products'
+    template_name = 'adminapp/admin_products_show.html'
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_product_change(request, id):
-    product_select = Product.objects.get(id=id)
-    if request.method == 'POST':
-        form = AdminProductCreate(instance=product_select, data=request.POST)
-        if form.is_valid():
-            form.save()
-            return HttpResponseRedirect(reverse('adminapp:admin_products_show'))
-        else:
-            print(form.errors)
-    else:
-        form = AdminProductCreate(instance=product_select)
-
-    context = {
-        'title': 'Изменение товара',
-        'form': form,
-        'product_select': product_select
-    }
-    return render(request, 'adminapp/admin_products_update-delete.html', context)
+class AdminProductCreateView(CreateView, SuperuserDispatchMixin, BaseClassContextMixin):
+    title = 'Создание товара'
+    template_name = 'adminapp/admin_products_create.html'
+    form_class = AdminProductCreate
+    model = Product
 
 
-@user_passes_test(lambda u: u.is_superuser)
-def admin_product_delete(request, id):
-    product_select = Product.objects.get(id=id)
-    product_select.is_active = False
-    product_select.save()
+class AdminProductChangeView(UpdateView, SuperuserDispatchMixin, BaseClassContextMixin):
+    template_name = 'adminapp/admin_products_update-delete.html'
+    title = 'Изменение товара'
+    form_class = AdminProductCreate
+    model = Product
+    context_object_name = 'product_select'
+    success_url = reverse_lazy('adminapp:admin_products')
 
-    return HttpResponseRedirect(reverse('adminapp:admin_products_show'))
+
+class AdminProductDeleteView(DeleteView, SuperuserDispatchMixin, BaseClassContextMixin):
+    model = Product
+    success_url = reverse_lazy('adminapp:admin_products')
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.object.is_active = False
+        self.object.save()
+
+        return HttpResponseRedirect(self.success_url)
